@@ -1020,7 +1020,7 @@ def make_commitment_outputs(
         if htlc.amount_msat // 1000 > dust_limit_sat:
             htlc_outputs.append(
                 PartialTxOutput(
-                    scriptpubkey=bfh(address_to_script(addr)),
+                    scriptpubkey=address_to_script(addr),
                     value=htlc.amount_msat // 1000
                 ))
 
@@ -1043,16 +1043,15 @@ def make_commitment_outputs(
 
         # include anchors for outputs that materialize, include both if there are HTLCs present
         if to_local_amt_msat // 1000 >= dust_limit_sat or htlc_outputs:
-            anchor_outputs.append(PartialTxOutput(scriptpubkey=bfh(local_anchor_script), value=FIXED_ANCHOR_SAT))
+            anchor_outputs.append(PartialTxOutput(scriptpubkey=local_anchor_script, value=FIXED_ANCHOR_SAT))
         if to_remote_amt_msat // 1000 >= dust_limit_sat or htlc_outputs:
-            anchor_outputs.append(PartialTxOutput(scriptpubkey=bfh(remote_anchor_script), value=FIXED_ANCHOR_SAT))
+            anchor_outputs.append(PartialTxOutput(scriptpubkey=remote_anchor_script, value=FIXED_ANCHOR_SAT))
 
     # if funder cannot afford feerate, their output might go negative, so take max(0, x) here
     to_local_amt_msat = max(0, to_local_amt_msat)
     to_remote_amt_msat = max(0, to_remote_amt_msat)
-    non_htlc_outputs.append(PartialTxOutput(scriptpubkey=bfh(local_script), value=to_local_amt_msat // 1000))
-    non_htlc_outputs.append(PartialTxOutput(scriptpubkey=bfh(remote_script), value=to_remote_amt_msat // 1000))
->>>>>>> 3d2216d18 (lnutil+lnchannel: add anchors, adapt to_remote)
+    non_htlc_outputs.append(PartialTxOutput(scriptpubkey=local_script, value=to_local_amt_msat // 1000))
+    non_htlc_outputs.append(PartialTxOutput(scriptpubkey=remote_script, value=to_remote_amt_msat // 1000))
 
     c_outputs_filtered = list(filter(lambda x: x.value >= dust_limit_sat, non_htlc_outputs + htlc_outputs))
     c_outputs = c_outputs_filtered + anchor_outputs
@@ -1205,24 +1204,24 @@ def make_commitment_output_to_local_address(
 
 def make_commitment_output_to_remote_witness_script(remote_payment_pubkey: bytes) -> bytes:
     assert isinstance(remote_payment_pubkey, bytes)
-    script = bfh(construct_script([
+    script = construct_script([
         remote_payment_pubkey,
         opcodes.OP_CHECKSIGVERIFY,
         opcodes.OP_1,
         opcodes.OP_CHECKSEQUENCEVERIFY,
-    ]))
+    ])
     return script
 
 def make_commitment_output_to_remote_address(remote_payment_pubkey: bytes, has_anchors: bool) -> str:
     if has_anchors:
         remote_script = make_commitment_output_to_remote_witness_script(remote_payment_pubkey)
-        return bitcoin.redeem_script_to_address('p2wsh', remote_script.hex())
+        return bitcoin.redeem_script_to_address('p2wsh', remote_script)
     else:
         return bitcoin.pubkey_to_address('p2wpkh', remote_payment_pubkey.hex())
 
 def make_commitment_output_to_anchor_witness_script(funding_pubkey: bytes) -> bytes:
     assert isinstance(funding_pubkey, bytes)
-    script = bfh(construct_script([
+    script = construct_script([
         funding_pubkey,
         opcodes.OP_CHECKSIG,
         opcodes.OP_IFDUP,
@@ -1230,12 +1229,12 @@ def make_commitment_output_to_anchor_witness_script(funding_pubkey: bytes) -> by
         opcodes.OP_16,
         opcodes.OP_CHECKSEQUENCEVERIFY,
         opcodes.OP_ENDIF,
-    ]))
+    ])
     return script
 
 def make_commitment_output_to_anchor_address(funding_pubkey: bytes) -> str:
     script = make_commitment_output_to_anchor_witness_script(funding_pubkey)
-    return bitcoin.redeem_script_to_address('p2wsh', script.hex())
+    return bitcoin.redeem_script_to_address('p2wsh', script)
 
 def sign_and_get_sig_string(tx: PartialTransaction, local_config, remote_config):
     tx.sign({local_config.multisig_key.pubkey: local_config.multisig_key.privkey})
