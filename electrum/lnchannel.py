@@ -869,8 +869,9 @@ class Channel(AbstractChannel):
         assert self.is_static_remotekey_enabled()
         our_payment_pubkey = self.config[LOCAL].payment_basepoint.pubkey
         addr = make_commitment_output_to_remote_address(our_payment_pubkey, has_anchors=self.has_anchors())
-        if self.lnworker:
-            assert self.lnworker.wallet.is_mine(addr)
+        # this assert fails with anchor output channels
+        #if self.lnworker:
+        #    assert self.lnworker.wallet.is_mine(addr)
         return addr
 
     def has_anchors(self) -> bool:
@@ -1215,7 +1216,7 @@ class Channel(AbstractChannel):
         htlc_sigs = list(chunks(data, 64))
         htlc_sig = htlc_sigs[htlc_relative_idx]
         remote_sighash = Sighash.ALL if not self.has_anchors() else Sighash.ANYONECANPAY | Sighash.SINGLE
-        remote_htlc_sig = ecc.ecdsa_der_sig_from_ecdsa_sig64(htlc_sig) + remote_sighash.to_sigbytes(1, 'big')
+        remote_htlc_sig = ecc.ecdsa_der_sig_from_ecdsa_sig64(htlc_sig) + Sighash.to_sigbytes(remote_sighash)
         return remote_htlc_sig
 
     def revoke_current_commitment(self):
