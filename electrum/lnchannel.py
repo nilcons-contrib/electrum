@@ -398,7 +398,6 @@ class AbstractChannel(Logger, ABC):
                 # auto-remove redeemed backups
                 self.lnworker.remove_channel_backup(self.channel_id)
 
-
     @abstractmethod
     def is_initiator(self) -> bool:
         pass
@@ -522,8 +521,13 @@ class ChannelBackup(AbstractChannel):
         self.config[LOCAL] = LocalConfig.from_seed(
             channel_seed=cb.channel_seed,
             to_self_delay=cb.local_delay,
+            # there are three cases of backups:
+            # 1. legacy: payment_basepoint will be derived
+            # 2. static_remotekey: to_remote sweep not necessary due to wallet address
+            # 3. anchor outputs: sweep to_remote by deriving the key from the funding pubkeys
             static_remotekey=local_payment_pubkey,
             # dummy values
+            static_payment_key=None,
             dust_limit_sat=None,
             max_htlc_value_in_flight_msat=None,
             max_accepted_htlcs=None,
@@ -619,6 +623,9 @@ class ChannelBackup(AbstractChannel):
     @property
     def sweep_address(self) -> str:
         return self.lnworker.wallet.get_new_sweep_address_for_channel()
+
+    def has_anchors(self) -> Optional[bool]:
+        return None
 
     def get_local_pubkey(self) -> bytes:
         cb = self.cb
