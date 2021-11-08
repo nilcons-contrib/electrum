@@ -1174,7 +1174,8 @@ def make_commitment(
         remote_anchor_script=address_to_script(remote_anchor_address) if remote_anchor_address else None
     )
 
-    assert sum(x.value for x in c_outputs_filtered) <= funding_sat, (c_outputs_filtered, funding_sat)
+    # the following does not hold with anchor outputs
+    #assert sum(x.value for x in c_outputs_filtered) <= funding_sat, (c_outputs_filtered, funding_sat)
 
     # create commitment tx
     tx = PartialTransaction.from_io(c_inputs, c_outputs_filtered, locktime=locktime, version=2)
