@@ -46,7 +46,7 @@ from electrum.simple_config import SimpleConfig
 from .test_lnchannel import create_test_channels as create_test_channels_anchors
 from . import ElectrumTestCase
 
-TEST_ANCHOR_CHANNELS = False
+TEST_ANCHOR_CHANNELS = True
 
 
 def create_test_channels(*args, **kwargs):
@@ -175,7 +175,7 @@ class MockLNWallet(Logger, EventListener, NetworkRetryManager[LNPeerAddr]):
         self.features |= LnFeatures.OPTION_CHANNEL_TYPE_OPT
         self.features |= LnFeatures.OPTION_SCID_ALIAS_OPT
         self.features |= LnFeatures.OPTION_STATIC_REMOTEKEY_OPT
-        self.config.set_key('enable_anchor_channels', TEST_ANCHOR_CHANNELS)
+        self.config.ENABLE_ANCHOR_CHANNELS = TEST_ANCHOR_CHANNELS
         self.pending_payments = defaultdict(asyncio.Future)
         for chan in chans:
             chan.lnworker = self
