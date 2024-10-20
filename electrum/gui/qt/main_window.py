@@ -1202,9 +1202,8 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
         sm = self.wallet.lnworker.swap_manager
         if not sm.is_initialized.is_set():
             async def wait_until_initialized():
-                timeout = 5
                 try:
-                    await asyncio.wait_for(sm.is_initialized.wait(), timeout=timeout)
+                    await asyncio.wait_for(sm.is_initialized.wait(), timeout=30)
                 except asyncio.TimeoutError:
                     return
             try:
@@ -1221,12 +1220,25 @@ class ElectrumWindow(QMainWindow, MessageBoxMixin, Logger, QtEventListener):
         return True
 
     def choose_swapserver_dialog(self, transport):
-        sm = self.wallet.lnworker.swap_manager
+        if not transport.is_connected.is_set():
+            self.show_message(
+                '\n'.join([
+                    _('Could not connect to a Nostr relay.'),
+                    _('Please check your relays and network connection'),
+                ]))
+            return False
         now = int(time.time())
+        recent_offers = [x for x in transport.offers.values() if now - x['timestamp'] < 3600]
+        if not recent_offers:
+            self.show_message(
+                '\n'.join([
+                    _('Could not find a swap provider.'),
+                ]))
+            return False
+        sm = self.wallet.lnworker.swap_manager
         def descr(x):
             last_seen = util.age(x['timestamp'])
             return f"pubkey={x['pubkey'][0:10]},  fee={x['percentage_fee']}% + {x['reverse_mining_fee']} sats"
-        recent_offers = [x for x in transport.offers.values() if now - x['timestamp'] < 3600]
         server_keys = [(x['pubkey'], descr(x)) for x in recent_offers]
         msg = '\n'.join([
             _("Please choose a server from this list."),

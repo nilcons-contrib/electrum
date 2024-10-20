@@ -212,8 +212,11 @@ class SwapManager(Logger):
             if swap.prepay_hash is not None:
                 self.prepayments[swap.prepay_hash] = bytes.fromhex(k)
         self.is_server = self.config.get('enable_plugin_swapserver', False)
-        self.use_nostr = bool(self.config.NOSTR_RELAYS)
         self.is_initialized = asyncio.Event()
+
+    @property
+    def use_nostr(self):
+        return bool(self.config.NOSTR_RELAYS)
 
     def start_network(self, network: 'Network'):
         assert network
@@ -232,8 +235,6 @@ class SwapManager(Logger):
     @log_exceptions
     async def run_nostr_server(self):
         with NostrTransport(self.config, self, self.lnworker.nostr_keypair) as transport:
-            self.logger.info(f'starting nostr transport with pubkey: {transport.nostr_pubkey}')
-            self.logger.info(f'nostr relays: {transport.relays}')
             await transport.is_connected.wait()
             self.logger.info(f'nostr is connected')
             while True:
@@ -1313,14 +1314,18 @@ class NostrTransport(Logger):
         return self
 
     def __exit__(self, ex_type, ex, tb):
-        asyncio.run_coroutine_threadsafe(self.stop(), self.network.asyncio_loop)
+        fut = asyncio.run_coroutine_threadsafe(self.stop(), self.network.asyncio_loop)
+        fut.result(timeout=5)
 
     @log_exceptions
     async def main_loop(self):
         self.logger.info(f'starting nostr transport with pubkey: {self.nostr_pubkey}')
         self.logger.info(f'nostr relays: {self.relays}')
         await self.relay_manager.connect()
-        self.is_connected.set()
+        connected_relays = self.relay_manager.relays
+        self.logger.info(f'connected relays: {[relay.url for relay in connected_relays]}')
+        if connected_relays:
+            self.is_connected.set()
         if self.sm.is_server:
             tasks = [
                 self.check_direct_messages(),
@@ -1340,6 +1345,7 @@ class NostrTransport(Logger):
         finally:
             self.logger.info("taskgroup stopped.")
 
+    @log_exceptions
     async def stop(self):
         self.logger.info("shutting down nostr transport")
         self.sm.is_initialized.clear()
